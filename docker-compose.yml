@@ -1,0 +1,41 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      MONGODB_URI: ${MONGODB_URI:?Set MONGODB_URI to your MongoDB Atlas connection string}
+      MONGODB_DATABASE: ${MONGODB_DATABASE:-owlinsight}
+      MONGODB_COLLECTION: ${MONGODB_COLLECTION:-documents}
+      MONGODB_VECTOR_INDEX: ${MONGODB_VECTOR_INDEX:-vector_index}
+      OLLAMA_BASE_URL: http://ollama:11434
+    depends_on:
+      ollama-model:
+        condition: service_completed_successfully
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  ollama-model:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["ollama pull qwen3-embedding:4b"]
+    volumes:
+      - ollama-data:/root/.ollama
+
+volumes:
+  ollama-data:
